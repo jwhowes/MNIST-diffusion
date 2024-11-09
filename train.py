@@ -11,10 +11,10 @@ from src.data import MNISTDataset
 
 
 def train(model, dataloader):
-    num_epochs = 10
+    num_epochs = 5
     opt = torch.optim.Adam(model.parameters(), lr=3e-4)
     lr_scheduler = get_cosine_schedule_with_warmup(
-        opt, num_warmup_steps=950, num_training_steps=num_epochs * len(dataloader)
+        opt, num_warmup_steps=500, num_training_steps=num_epochs * len(dataloader)
     )
 
     accelerator = Accelerator()
