@@ -76,21 +76,21 @@ class SelfAttention(nn.Module):
 
 
 class TimeEmbedding(nn.Module):
-    def __init__(self, d_t, hidden_dim=None, theta=10000):
+    def __init__(self, d_model, hidden_dim=None, theta=10000):
         super(TimeEmbedding, self).__init__()
-        assert d_t % 2 == 0, "d_t must be even"
+        assert d_model % 2 == 0, "d_model must be even"
         if hidden_dim is None:
-            hidden_dim = 4 * d_t
+            hidden_dim = 4 * d_model
 
         self.register_buffer(
             "freqs",
-            (theta ** (2 * torch.arange(d_t // 2) / d_t)).view(1, -1),
+            (theta ** (2 * torch.arange(d_model // 2) / d_model)).view(1, -1),
             persistent=False
         )
         self.mlp = nn.Sequential(
-            nn.Linear(d_t, hidden_dim),
+            nn.Linear(d_model, hidden_dim),
             nn.GELU(),
-            nn.Linear(hidden_dim, d_t),
+            nn.Linear(hidden_dim, d_model),
             nn.GELU()
         )
 
@@ -106,23 +106,17 @@ class TimeEmbedding(nn.Module):
         return self.mlp(pos)
 
 
-class TimeConditionalRMSNorm(nn.Module):
-    def __init__(self, d_model, d_t, eps=1e-6):
-        super(TimeConditionalRMSNorm, self).__init__()
+class RMSNorm(nn.Module):
+    def __init__(self, d_model, eps=1e-6):
+        super(RMSNorm, self).__init__()
         self.eps = eps
 
-        self.gamma = nn.Linear(d_t, d_model)
-        self.beta = nn.Linear(d_t, d_model)
+        self.gamma = nn.Parameter(torch.ones(d_model))
 
-    def forward(self, x, t):
+    def forward(self, x):
         B, L, _ = x.shape
 
-        b = self.beta(t).view(B, 1, -1)
-        g = self.gamma(t).view(B, 1, -1)
-
-        return (
-            g * x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True))
-        ) + b
+        return self.gamma * x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True))
 
 
 class SwiGLU(nn.Module):
@@ -141,24 +135,24 @@ class SwiGLU(nn.Module):
         )
 
 
-class TimeConditionalVitBlock(nn.Module):
-    def __init__(self, d_model, d_t, n_heads):
-        super(TimeConditionalVitBlock, self).__init__()
+class ViTBlock(nn.Module):
+    def __init__(self, d_model, n_heads):
+        super(ViTBlock, self).__init__()
         self.attn = SelfAttention(d_model, n_heads)
-        self.attn_norm = TimeConditionalRMSNorm(d_model, d_t)
+        self.attn_norm = RMSNorm(d_model)
 
         self.ffn = SwiGLU(d_model)
-        self.ffn_norm = TimeConditionalRMSNorm(d_model, d_t)
+        self.ffn_norm = RMSNorm(d_model)
 
-    def forward(self, x, t):
-        x = x + self.attn(self.attn_norm(x, t))
+    def forward(self, x):
+        x = x + self.attn(self.attn_norm(x))
 
-        return x + self.ffn(self.ffn_norm(x, t))
+        return x + self.ffn(self.ffn_norm(x))
 
 
 class ClassConditionalVitDiffuser(nn.Module):
     def __init__(
-            self, d_model, d_t, n_layers, n_heads, num_classes,
+            self, d_model, n_layers, n_heads, num_classes,
             num_channels=3, image_size=224, patch_size=16,
             t_min=0.01, t_max=6.0,
             p_uncond=0.1
@@ -184,12 +178,12 @@ class ClassConditionalVitDiffuser(nn.Module):
 
         self.label_emb = nn.Embedding(num_classes + 1, d_model)
 
-        self.t_model = TimeEmbedding(d_t)
+        self.t_model = TimeEmbedding(d_model)
 
         self.layers = nn.ModuleList()
         for _ in range(n_layers):
             self.layers.append(
-                TimeConditionalVitBlock(d_model, d_t, n_heads)
+                ViTBlock(d_model, n_heads)
             )
 
         self.patch_head = nn.Linear(d_model, num_channels * patch_size * patch_size)
@@ -209,14 +203,15 @@ class ClassConditionalVitDiffuser(nn.Module):
 
         x_t = torch.concatenate((
             label_emb.view(B, 1, -1),
+            t_emb.view(B, 1, -1),
             x_t
         ), dim=1)
 
         for layer in self.layers:
-            x_t = layer(x_t, t_emb)
+            x_t = layer(x_t)
 
         return self.out_conv(
-            self.patch_head(x_t[:, 1:])
+            self.patch_head(x_t[:, 2:])
             .unflatten(1, (self.num_patches, self.num_patches))
             .unflatten(3, (self.num_channels, self.patch_size, self.patch_size))
             .permute(0, 3, 1, 4, 2, 5)
