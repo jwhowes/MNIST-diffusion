@@ -12,9 +12,9 @@ from src.data import MNISTDataset
 
 def train(model, dataloader):
     num_epochs = 10
-    opt = torch.optim.Adam(model.parameters(), lr=5e-5)
+    opt = torch.optim.Adam(model.parameters(), lr=3e-4)
     lr_scheduler = get_cosine_schedule_with_warmup(
-        opt, num_warmup_steps=1500, num_training_steps=num_epochs * len(dataloader)
+        opt, num_warmup_steps=950, num_training_steps=num_epochs * len(dataloader)
     )
 
     accelerator = Accelerator()
@@ -34,7 +34,7 @@ def train(model, dataloader):
             opt.step()
             lr_scheduler.step()
 
-            if i % 100 == 0:
+            if i % 50 == 0:
                 print(f"\t{i} / {len(dataloader)} iters. Loss: {loss.item():.6f}")
 
         torch.save(
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     dataset = MNISTDataset(split="train")
     dataloader = DataLoader(
         dataset,
-        batch_size=32,
+        batch_size=64,
         num_workers=4,
         pin_memory=True,
         shuffle=True

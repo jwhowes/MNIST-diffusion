@@ -236,9 +236,7 @@ class ClassConditionalVitDiffuser(nn.Module):
         return x_t - t.view(-1, 1, 1, 1) * eps
 
     @torch.inference_mode
-    def euler_sample(self, label, num_samples=5, num_timesteps=50, guidance_scale=0.0):
-        dt = self.noise_scheduler.t_range / (num_timesteps - 1)
-
+    def sample(self, label, num_samples=5, num_timesteps=50, guidance_scale=0.0):
         if label.ndim == 0:
             label = label.view(1)
 
@@ -252,17 +250,16 @@ class ClassConditionalVitDiffuser(nn.Module):
         ts = (torch.linspace(self.noise_scheduler.t_max, self.noise_scheduler.t_min, num_timesteps)
               .unsqueeze(1).repeat(1, num_samples))
 
-        for t in tqdm(ts, total=num_timesteps):
-            t_emb = self.t_model(t)
+        for i in tqdm(range(num_timesteps), total=num_timesteps):
+            t_emb = self.t_model(ts[i])
 
             pred_eps = self.pred_eps(x_t, t_emb, label_emb)
             if guidance_scale > 0:
                 pred_eps_uncond = self.pred_eps(x_t, t_emb, label_emb_uncond)
                 pred_eps = (1 + guidance_scale) * pred_eps - guidance_scale * pred_eps_uncond
 
-            # x_{t-1} = x_t + dt * (d/dt p(x_0 | x_t))
-            # d/dt p(x_0 | x_t) = (x_0 - x_t) / t = -eps
-            # x_{t-1} = x_t - dt * eps
-            x_t = x_t - dt * pred_eps
+            x_t = x_t - ts[i].view(-1, 1, 1, 1) * pred_eps
+            if i < num_timesteps - 1:
+                x_t = x_t + ts[i + 1].view(-1, 1, 1, 1) * torch.randn_like(x_t)
 
         return x_t
