@@ -49,6 +49,7 @@ if __name__ == "__main__":
 
     model = ClassConditionalVitDiffuser(
         d_model=512,
+        d_t=512,
         n_layers=8,
         n_heads=8,
         num_classes=10,
