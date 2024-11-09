@@ -114,7 +114,6 @@ class RMSNorm(nn.Module):
         self.gamma = nn.Parameter(torch.ones(d_model))
 
     def forward(self, x):
-        B, L, _ = x.shape
 
         return self.gamma * x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True))
 
