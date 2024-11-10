@@ -6,7 +6,7 @@ from accelerate import Accelerator
 from torch.utils.data import DataLoader
 from transformers import get_cosine_schedule_with_warmup
 
-from src.model import ClassConditionalVitDiffuser
+from src.model import ClassConditionalVitDiffuser, ClassConditionalConvNeXtUNetDiffuser
 from src.data import MNISTDataset
 
 
@@ -47,23 +47,22 @@ if __name__ == "__main__":
     if not os.path.isdir("checkpoints"):
         os.mkdir("checkpoints")
 
-    model = ClassConditionalVitDiffuser(
-        d_model=512,
-        d_t=512,
-        n_layers=8,
-        n_heads=8,
-        num_classes=10,
-        num_channels=1,
-        patch_size=2,
-        image_size=28,
+    model = ClassConditionalConvNeXtUNetDiffuser(
+        d_init=128,
+        d_t=256,
+        n_scales=2,
+        n_classes=10,
+        n_channels=1,
+        n_blocks_per_scale=2,
         t_min=0.01,
-        t_max=3.5
+        t_max=3.5,
+        p_uncond=0.1
     )
 
     dataset = MNISTDataset(split="train")
     dataloader = DataLoader(
         dataset,
-        batch_size=64,
+        batch_size=32,
         num_workers=4,
         pin_memory=True,
         shuffle=True
