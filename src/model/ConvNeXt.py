@@ -60,7 +60,7 @@ class Block(nn.Module):
         B = x.shape[0]
 
         residual = x
-        x = self.dwconv(x + self.label_emb(label).view(B, -1, 1, 1))
+        x = self.dwconv(x)
         x = x.permute(0, 2, 3, 1)
         x = self.norm(x, t)
         x = self.pwconv1(x)
@@ -69,7 +69,7 @@ class Block(nn.Module):
         x = self.pwconv2(x)
         x = x.permute(0, 3, 1, 2)
 
-        return x + residual
+        return x + residual + self.label_emb(label).view(B, -1, 1, 1)
 
 
 class ClassConditionalConvNeXtUNetDiffuser(nn.Module):
