@@ -129,8 +129,9 @@ class ClassConditionalVitDiffuser(nn.Module):
         self.patch_head = nn.Linear(d_model, num_channels * patch_size * patch_size)
         self.out_conv = nn.Conv2d(num_channels, num_channels, kernel_size=3, padding=1)
 
-    def pred_eps(self, x_t, t_emb, label_emb):
+    def pred_eps(self, x_t, t_emb, label):
         B = x_t.shape[0]
+        label_emb = self.label_emb(label)
 
         x_t = self.patch_proj(
             x_t
@@ -166,37 +167,7 @@ class ClassConditionalVitDiffuser(nn.Module):
 
         label += 1
         label.masked_fill_(torch.rand(B, device=label.device) < self.p_uncond, 0)
-        label_emb = self.label_emb(label)
 
-        pred_eps = self.pred_eps(x_t, t_emb, label_emb)
+        pred_eps = self.pred_eps(x_t, t_emb, label)
 
         return F.mse_loss(pred_eps, eps)
-
-    @torch.inference_mode
-    def sample(self, label, num_samples=5, num_timesteps=50, guidance_scale=0.0):
-        if label.ndim == 0:
-            label = label.view(1)
-
-        label = label.repeat(num_samples)
-        label_emb = self.label_emb(label + 1)
-        label_emb_uncond = self.label_emb(torch.zeros_like(label))
-
-        x_t = torch.randn(
-            num_samples, self.num_channels, self.image_size, self.image_size
-        ) * sqrt(self.noise_scheduler.t_max ** 2 + 1)
-        ts = (torch.linspace(self.noise_scheduler.t_max, self.noise_scheduler.t_min, num_timesteps)
-              .unsqueeze(1).repeat(1, num_samples))
-
-        for i in tqdm(range(num_timesteps), total=num_timesteps):
-            t_emb = self.t_model(ts[i])
-
-            pred_eps = self.pred_eps(x_t, t_emb, label_emb)
-            if guidance_scale > 0:
-                pred_eps_uncond = self.pred_eps(x_t, t_emb, label_emb_uncond)
-                pred_eps = (1 + guidance_scale) * pred_eps - guidance_scale * pred_eps_uncond
-
-            x_t = x_t - ts[i].view(-1, 1, 1, 1) * pred_eps
-            if i < num_timesteps - 1:
-                x_t = x_t + ts[i + 1].view(-1, 1, 1, 1) * torch.randn_like(x_t)
-
-        return x_t
