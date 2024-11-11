@@ -127,7 +127,7 @@ class ClassConditionalVitDiffuser(nn.Module):
         self.patch_head = nn.Linear(d_model, num_channels * patch_size * patch_size)
         self.out_conv = nn.Conv2d(num_channels, num_channels, kernel_size=3, padding=1)
 
-    def pred_x_0(self, x_t, t_emb, label):
+    def pred_eps(self, x_t, t_emb, label):
         B = x_t.shape[0]
         label_emb = self.label_emb(label)
 
@@ -166,6 +166,6 @@ class ClassConditionalVitDiffuser(nn.Module):
         label += 1
         label.masked_fill_(torch.rand(B, device=label.device) < self.p_uncond, 0)
 
-        pred_x_0 = self.pred_x_0(x_t, t_emb, label)
+        pred_eps = self.pred_eps(x_t, t_emb, label)
 
-        return F.mse_loss(pred_x_0, x_0)
+        return F.mse_loss(pred_eps, eps)

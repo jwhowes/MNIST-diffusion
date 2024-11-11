@@ -29,7 +29,7 @@ class DiffusionWrapper(nn.Module):
 
         x_t = torch.randn(
             num_samples, self.num_channels, self.image_size, self.image_size
-        )
+        ) * sqrt(self.t_max ** 2 + 1)
         ts = (
             torch.linspace(self.t_max, self.t_min, num_timesteps)
             .unsqueeze(1).repeat(1, num_samples)
@@ -37,15 +37,16 @@ class DiffusionWrapper(nn.Module):
 
         for i in tqdm(range(num_timesteps), total=num_timesteps):
             t_emb = self.t_model(ts[i])
+            t = ts[i].view(-1, 1, 1, 1)
 
-            pred_x_0 = self.backbone.pred_x_0(x_t, t_emb, label)
+            pred_eps = self.backbone.pred_eps(x_t, t_emb, label)
             if guidance_scale > 0:
-                pred_x_0_uncond = self.backbone.pred_x_0(x_t, t_emb, label_uncond)
-                pred_x_0 = (1 + guidance_scale) * pred_x_0 - guidance_scale * pred_x_0_uncond
+                pred_eps_uncond = self.backbone.pred_eps(x_t, t_emb, label_uncond)
+                pred_eps = (1 + guidance_scale) * pred_eps - guidance_scale * pred_eps_uncond
 
-            x_t = pred_x_0
+            x_t = x_t - pred_eps * t
             if i < num_timesteps - 1:
                 t = ts[i + 1].view(-1, 1, 1, 1)
-                x_t = (x_t + t * torch.randn_like(x_t)) / torch.sqrt(t.pow(2) + 1)
+                x_t = x_t + t * torch.randn_like(x_t)
 
         return x_t

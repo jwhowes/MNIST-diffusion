@@ -55,7 +55,7 @@ class NoiseScheduler(nn.Module):
         if eps is None:
             eps = torch.randn_like(x_0)
 
-        x_t = (x_0 + t * eps) / torch.sqrt(t.pow(2) + 1)
+        x_t = x_0 + t * eps
 
         if return_t and return_eps:
             return x_t, t.squeeze(), eps

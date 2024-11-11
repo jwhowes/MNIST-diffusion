@@ -14,7 +14,7 @@ def train(model, dataloader):
     num_epochs = 5
     opt = torch.optim.Adam(model.parameters(), lr=5e-5)
     lr_scheduler = get_cosine_schedule_with_warmup(
-        opt, num_warmup_steps=100, num_training_steps=num_epochs * len(dataloader)
+        opt, num_warmup_steps=500, num_training_steps=num_epochs * len(dataloader)
     )
 
     accelerator = Accelerator()
