@@ -124,7 +124,7 @@ class ClassConditionalConvNeXtUNetDiffuser(nn.Module):
 
         self.head = nn.Conv2d(d_init, n_channels, kernel_size=7, padding=3)
 
-    def pred_eps(self, x_t, t_emb, label):
+    def pred_x_0(self, x_t, t_emb, label):
         x_t = self.stem(x_t)
 
         down_acts = []
@@ -160,6 +160,6 @@ class ClassConditionalConvNeXtUNetDiffuser(nn.Module):
         label += 1
         label.masked_fill_(torch.rand(B, device=label.device) < self.p_uncond, 0)
 
-        pred_eps = self.pred_eps(x_t, t_emb, label)
+        pred_x_0 = self.pred_x_0(x_t, t_emb, label)
 
-        return F.mse_loss(pred_eps, eps)
+        return F.mse_loss(pred_x_0, x_0)
