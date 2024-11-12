@@ -1,17 +1,16 @@
 import torch
 import os
-import torch.nn.functional as F
 
 from accelerate import Accelerator
 from torch.utils.data import DataLoader
 from transformers import get_cosine_schedule_with_warmup
 
-from src.model import ClassConditionalVitDiffuser, ClassConditionalConvNeXtUNetDiffuser
+from src.model import ClassConditionalConvNeXtUNetDiffuser
 from src.data import MNISTDataset
 
 
 def train(model, dataloader):
-    num_epochs = 5
+    num_epochs = 10
     opt = torch.optim.Adam(model.parameters(), lr=5e-5)
     lr_scheduler = get_cosine_schedule_with_warmup(
         opt, num_warmup_steps=500, num_training_steps=num_epochs * len(dataloader)
@@ -34,7 +33,7 @@ def train(model, dataloader):
             opt.step()
             lr_scheduler.step()
 
-            if i % 10 == 0:
+            if i % 50 == 0:
                 print(f"\t{i} / {len(dataloader)} iters. Loss: {loss.item():.6f}")
 
         torch.save(
@@ -50,12 +49,11 @@ if __name__ == "__main__":
     model = ClassConditionalConvNeXtUNetDiffuser(
         d_init=128,
         d_t=256,
-        n_scales=2,
+        n_scales=3,
         n_classes=10,
         n_channels=1,
         n_blocks_per_scale=2,
-        t_min=0.01,
-        t_max=3.5,
+        t_min=0.01, t_max=3.5,
         p_uncond=0.1
     )
 

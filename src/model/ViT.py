@@ -107,7 +107,9 @@ class ClassConditionalVitDiffuser(nn.Module):
         self.patch_size = patch_size
         self.num_patches = image_size // patch_size
 
-        self.patch_proj = nn.Linear(num_channels * patch_size * patch_size, d_model, bias=False)
+        self.stem = nn.Conv2d(num_channels, d_model // (patch_size * patch_size), kernel_size=7, padding=3)
+        self.patch_proj = nn.Linear((d_model // (patch_size * patch_size)) * (patch_size * patch_size), d_model,
+                                    bias=False)
 
         L = self.num_patches * self.num_patches
         self.pos_emb = nn.Parameter(
@@ -125,12 +127,13 @@ class ClassConditionalVitDiffuser(nn.Module):
             )
 
         self.patch_head = nn.Linear(d_model, num_channels * patch_size * patch_size)
-        self.out_conv = nn.Conv2d(num_channels, num_channels, kernel_size=3, padding=1)
+        self.out_conv = nn.Conv2d(num_channels, num_channels, kernel_size=7, padding=3)
 
     def pred_eps(self, x_t, t_emb, label):
         B = x_t.shape[0]
         label_emb = self.label_emb(label)
 
+        x_t = self.stem(x_t)
         x_t = self.patch_proj(
             x_t
             .unfold(2, self.patch_size, self.patch_size)

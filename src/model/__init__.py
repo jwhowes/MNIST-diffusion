@@ -1,7 +1,6 @@
 import torch
 
 from torch import nn
-from math import sqrt
 from tqdm import tqdm
 
 from .ViT import ClassConditionalVitDiffuser
@@ -28,15 +27,15 @@ class DiffusionWrapper(nn.Module):
         label_uncond = torch.zeros_like(label)
 
         x_t = torch.randn(
-            num_samples, self.num_channels, self.image_size, self.image_size
-        ) * sqrt(self.t_max ** 2 + 1)
+            num_samples, self.num_channels, self.image_size, self.image_size, device=label.device
+        )
         ts = (
-            torch.linspace(self.t_max, self.t_min, num_timesteps)
+            torch.linspace(self.t_max, self.t_min, num_timesteps, device=label.device)
             .unsqueeze(1).repeat(1, num_samples)
         )
 
         for i in tqdm(range(num_timesteps), total=num_timesteps):
-            t_emb = self.t_model(ts[i])
+            t_emb = self.backbone.t_model(ts[i])
             t = ts[i].view(-1, 1, 1, 1)
 
             pred_eps = self.backbone.pred_eps(x_t, t_emb, label)
@@ -44,9 +43,9 @@ class DiffusionWrapper(nn.Module):
                 pred_eps_uncond = self.backbone.pred_eps(x_t, t_emb, label_uncond)
                 pred_eps = (1 + guidance_scale) * pred_eps - guidance_scale * pred_eps_uncond
 
-            x_t = x_t - pred_eps * t
+            x_t = x_t * torch.sqrt(t.pow(2) + 1) - pred_eps * t
             if i < num_timesteps - 1:
                 t = ts[i + 1].view(-1, 1, 1, 1)
-                x_t = x_t + t * torch.randn_like(x_t)
+                x_t = (x_t + torch.randn_like(x_t) * t) / torch.sqrt(t.pow(2) + 1)
 
         return x_t

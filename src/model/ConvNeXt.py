@@ -92,7 +92,7 @@ class ClassConditionalConvNeXtUNetDiffuser(nn.Module):
 
         self.down_path = nn.ModuleList()
         self.down_samples = nn.ModuleList()
-        for i in range(n_scales):
+        for i in range(n_scales - 1):
             blocks = nn.ModuleList()
             for j in range(n_blocks_per_scale):
                 blocks.append(
@@ -111,7 +111,7 @@ class ClassConditionalConvNeXtUNetDiffuser(nn.Module):
         self.up_samples = nn.ModuleList()
         self.up_combines = nn.ModuleList()
         self.up_path = nn.ModuleList()
-        for i in range(n_scales):
+        for i in range(n_scales - 1):
             self.up_samples.append(nn.ConvTranspose2d(scale * d_init, scale * d_init // 2, kernel_size=2, stride=2))
             scale //= 2
             self.up_combines.append(nn.Conv2d(scale * 2 * d_init, scale * d_init, kernel_size=7, padding=3))
